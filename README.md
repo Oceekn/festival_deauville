@@ -1,147 +1,107 @@
-# Deauville Festival du Rire - project brief
+# Deauville Festival du Rire
 
-The Deauville Festival du Rire (10-13 June 2027) needs a platform for its
-programme: artists, venues and shows, with the scheduling rules a generic CMS
-cannot enforce. The website and the admin are already written. Everything
-behind them is yours to build, in Python.
+Programme of the 2027 edition: venues, artists and three kinds of shows.
+The public website and the admin are the HTML in `web/`. This project is
+the part they talk to: the rules, the JSON file, a command line and a
+small web API.
 
-> Replace this README with your own once the project works (see
-> [Submission](#submission)).
-
-## What you get
-
-| Path                                     | Content                                                        |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| [data/festival.json](data/festival.json) | the 2027 edition: 4 venues, 12 artists, 23 performances        |
-| [web/public/](web/public/)               | the public website: programme, artists, "now on stage"         |
-| [web/admin/](web/admin/)                 | the admin: schedule, move and cancel performances, add artists |
-| [API.md](API.md)                         | the HTTP contract the website and the admin rely on            |
-| [main.py](main.py)                       | a few lines that read the data file: where you start           |
-
-That is all: no package, no class, no test. The structure of the project is
-part of the work. The two HTML folders are static files; they only talk to
-your server through the routes of `API.md`.
-
-## What you build
-
-1. **The festival model**: venues, artists, three kinds of performances, and
-   the rules below. A rule must hold whoever uses the model: the command line,
-   the web API, or a test.
-2. **Storage**: load the festival from `data/festival.json`, save it back
-   after every change. Loading checks every rule again: a broken file gives a
-   clear error, not a traceback.
-3. **A command line**, at least:
-   - the programme of one festival day, in order;
-   - the list of the artists with their number of shows;
-   - what is on stage at a given moment, and the next 3 performances.
-4. **A web server**, with FastAPI: the routes of [API.md](API.md) under
-   `/api`, `web/public/` served at `/` and `web/admin/` at `/admin/`.
-5. **Your tests** (pytest), written along the way.
-
-## The rules
-
-### Names and identifiers
-
-- Every name (artist, venue, performance title, participant) is stored without
-  the spaces around it, and cannot be empty.
-- Artists and venues are identified by a **slug**: lower case ASCII letters,
-  digits and single dashes, accents removed.
-  `"Théâtre des Planches"` → `"theatre-des-planches"`,
-  `"Élodie  Marchal !"` → `"elodie-marchal"`. Two artists with the same slug
-  are the same artist; same for venues.
-- A performance is identified by its venue slug and its start:
-  `"le-kiosque-2027-06-12-0100"`.
-- Artists are listed in alphabetical order of their slug (`Élodie` before
-  `Hugo`); venues in the order they were added; performances by start time,
-  then by venue name.
-
-### Venues, performances and time
-
-- A venue has a name, a number of seats (at least 1) and an address.
-- Every performance has a title, a venue, a start (local time, no time zone),
-  a duration from 1 to 360 minutes, and a description that may be empty.
-- **A festival day ends at 06:00.** A show starting at 00:30 on 12 June is
-  part of the 11 June programme.
-- A performance must belong to a day of the festival (`first_day` to
-  `last_day` of the data file).
-- A venue needs **30 minutes** between the end of a performance and the start
-  of the next one.
-- An artist needs **30 minutes** between two performances, in any venue and
-  in any role (solo artist, host, act, teacher).
-- Venue, artists and performances referenced by slug or id must exist.
-
-### Three kinds of performances
-
-| Kind       | Who is on stage                     | Specific rules                                                                                                                 |
-| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `solo`     | one artist                          | a minimum age for the audience, from 0 (everyone) to 18                                                                        |
-| `lineup`   | a host, then acts one after another | at least 2 acts, each one only once; the host is not an act; each act needs 10 minutes and the host 3 minutes between two acts |
-| `workshop` | a teacher, plus participants        | `max_participants` at least 1; registration by name, until full                                                                |
-
-- A lineup of 3 acts lasts at least `3 × 10 + 2 × 3 = 36` minutes.
-- A workshop has `min(max_participants, venue seats)` places. Participant
-  names are compared without case: `"Camille R."` is already registered if
-  `"camille r."` is.
-- The capacity of a solo show or a lineup is the number of seats of its venue.
-
-### Errors
-
-Every broken rule gives a sentence a festival organiser understands:
-`"Le Kiosque is busy with After Hours (2027-06-12 01:00-02:00). Leave 30
-minutes between two shows."`, not `KeyError: 'le-kiosque'`. The web API
-turns these errors into the status codes listed in `API.md` (404, 409, 422,
-500).
-
-A change that breaks a rule changes nothing: moving a performance onto a busy
-slot leaves it where it was.
-
-## Your decisions
-
-Nobody will tell you which modules or classes to write. Decide, then explain
-your choices in your README. A few questions to answer before coding:
-
-- Which objects does the festival have? What does each one know, what does
-  each one check?
-- What do the three kinds of performances share, and what differs?
-- Where does a rule live so that neither the command line nor the API can
-  bypass it? Can a caller add a performance without going through it?
-- How does the code calling the model know _which_ rule was broken?
-- If the data moved from a JSON file to a database tomorrow, which files
-  would change?
-
-You will defend these choices at the oral, on your own code.
-
-## Start
-
-Follow the project track, from its step 00:
+## Install and run
 
 ```bash
-uv init --no-package
-uv run main.py
+uv sync
 ```
 
-The track builds the project step by step, from reading this file to the
-whole API: each step says what must work at its end, never which functions
-or classes to write.
+One festival day, in order. A show after midnight stays on the previous day:
 
-## Levels
+```bash
+uv run main.py programme 2027-06-11
+```
 
-| Level | Status   | Criteria                                                                                                         |
-| ----- | -------- | ---------------------------------------------------------------------------------------------------------------- |
-| P1    | required | the program runs from a fresh clone, the rules hold, errors give clear messages, the code reads well             |
-| P2    | expected | coherent classes: inheritance and abstract classes where they fit, encapsulation, your own errors, storage apart |
-| P3    | bonus    | `ruff format` and `ruff check` clean, type annotations, docstrings, your tests, `uv build` works, the web API    |
+Artists, with how many shows each of them plays:
 
-Extension: a second storage in a SQLite database (e.g. SQLModel), usable in
-place of the JSON file without changing the model.
+```bash
+uv run main.py artists
+```
 
-## Submission
+What is on stage at a given moment, and the next 3 shows:
 
-The last push before the deadline is graded. Your README replaces this one
-and says:
+```bash
+uv run main.py now --at 2027-06-11T21:00
+```
 
-- what the project does, how to install it, run it and run the tests;
-- your structure: the modules and classes, and why (the questions above);
-- what is done, and what is not.
+Website, admin and API:
 
-A fresh clone must work with `uv sync`, then the commands of your README.
+```bash
+uv run main.py serve
+```
+
+- site: http://127.0.0.1:8000/
+- admin: http://127.0.0.1:8000/admin/
+- docs: http://127.0.0.1:8000/docs
+
+Tests, style and the package:
+
+```bash
+uv run pytest
+uv run ruff check
+uv run ruff format --check
+uv build
+```
+
+## Structure
+
+| File | Role |
+| --- | --- |
+| `festival/venue.py`, `artist.py` | a room, a person, and the slug of their name |
+| `festival/performance.py` | what every show shares, then Solo, Lineup and Workshop |
+| `festival/festival.py` | the programme, and the rules that need the whole edition |
+| `festival/clock.py` | a festival day ends at 06:00 |
+| `festival/names.py` | trim a name, build a slug |
+| `festival/errors.py` | a sentence an organiser can read, and which rule broke |
+| `festival/storage.py` | the only file that reads and writes JSON |
+| `festival/cli.py`, `api.py` | they call the model, they do not re-check the rules |
+
+### Which objects, and what each one checks
+
+- A **Venue** checks its name, its address and that it has at least one seat.
+- An **Artist** checks the name. The slug is the identity: `Élodie Marchal !`
+  and `Elodie Marchal` are the same artist.
+- A **Performance** checks the title, the duration (1 to 360 minutes) and the
+  description. **Solo** adds the minimum age (0 to 18). **Lineup** adds the
+  host, at least two different acts, and the minimum length: each act needs
+  10 minutes and the host needs 3 minutes between two acts, so three acts
+  last at least 36 minutes. **Workshop** adds the teacher, the number of
+  places, and registration. Names are compared without case, and the places
+  are `min(max_participants, seats)`.
+- The **Festival** checks the rules that need the other shows: the day is
+  inside the edition, the venue has 30 minutes free, and every artist on
+  stage has 30 minutes free, whatever their role.
+
+### Where a rule lives
+
+In the model, not in the command line and not in the API. The lists of
+venues, artists and shows are private. The only way in is
+`add_performance`, `replace_performance`, `cancel_performance` and
+`register_participant`. Each one checks first and changes the programme
+only if every rule holds. A move onto a busy slot leaves the show where
+it was.
+
+The caller knows which rule broke from the class of the error:
+`NotFoundError` (404), `ConflictError` (409), `InvalidError` (422).
+The message is the sentence. `StorageError` means the file cannot be read
+or written (500). Loading the file builds the same objects, so a broken
+file gives that sentence instead of a traceback.
+
+### If the JSON file became a database
+
+`storage.py` would be rewritten. The model would not change: it never
+opens the file. `cli.py` and `api.py` would only change the line that
+builds `JsonStorage`.
+
+## What is done, and what is not
+
+Done: the model and the rules, JSON load and save, the command line, the
+FastAPI routes of `API.md`, the website and the admin, tests, types,
+docstrings, and a clean `ruff` run.
+
+Not done: a second storage in SQLite. The place for it is `storage.py`.
